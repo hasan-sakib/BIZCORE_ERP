@@ -1,0 +1,3 @@
+<?php ob_start(); ?>
+<div class="card shadow-sm"><div class="card-header bg-white d-flex justify-content-between"><h6 class="mb-0 fw-semibold"><i class="fas fa-book me-2 text-primary"></i><?= sanitize($account['code']) ?> — <?= sanitize($account['name']) ?></h6><a href="/accounting/ledger" class="btn btn-outline-secondary btn-sm">← Back</a></div><div class="card-body text-center text-muted py-5"><i class="fas fa-list-alt fa-3x mb-3 opacity-25"></i><p>Ledger transactions for this account will appear here.</p><p class="fw-bold">Current Balance: ৳<?= number_format((float) $account['balance'], 2) ?></p></div></div>
+<?php $content = ob_get_clean(); include __DIR__ . '/../../layouts/app.php'; ?>

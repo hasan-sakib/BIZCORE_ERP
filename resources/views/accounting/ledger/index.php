@@ -1,0 +1,3 @@
+<?php ob_start(); ?>
+<div class="card shadow-sm"><div class="card-header bg-white"><h6 class="mb-0 fw-semibold"><i class="fas fa-book me-2 text-primary"></i>General Ledger — Select Account</h6></div><div class="card-body"><div class="row g-3"><?php foreach ($accounts as $acc): ?><div class="col-md-4"><a href="/accounting/ledger/<?= (int) $acc['id'] ?>" class="card card-body text-decoration-none border h-100"><code class="text-muted small"><?= sanitize($acc['code']) ?></code><div class="fw-semibold"><?= sanitize($acc['name']) ?></div><span class="badge bg-secondary mt-1"><?= ucfirst($acc['type']) ?></span></a></div><?php endforeach; ?></div></div></div>
+<?php $content = ob_get_clean(); include __DIR__ . '/../../layouts/app.php'; ?>

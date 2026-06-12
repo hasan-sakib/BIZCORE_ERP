@@ -1,0 +1,120 @@
+# =============================================================================
+# BizCore ERP — .gitignore
+# =============================================================================
+
+# ----------------------------------------------------------------
+# Composer / PHP dependencies
+# ----------------------------------------------------------------
+/vendor/
+composer.phar
+
+# ----------------------------------------------------------------
+# Environment & secrets — NEVER commit these
+# ----------------------------------------------------------------
+.env
+.env.local
+.env.testing
+.env.staging
+.env.production
+*.key
+*.pem
+*.p12
+
+# ----------------------------------------------------------------
+# Application generated storage
+# ----------------------------------------------------------------
+/storage/logs/*
+/storage/uploads/*
+/storage/exports/*
+/storage/backups/*
+/storage/cache/*
+/storage/sessions/*
+/storage/framework/cache/*
+/storage/framework/sessions/*
+/storage/framework/views/*
+
+# Keep directory structure in git
+!/storage/logs/.gitkeep
+!/storage/uploads/.gitkeep
+!/storage/exports/.gitkeep
+!/storage/backups/.gitkeep
+!/storage/cache/.gitkeep
+!/storage/sessions/.gitkeep
+
+# ----------------------------------------------------------------
+# Coverage and test artefacts
+# ----------------------------------------------------------------
+/coverage/
+/storage/coverage/
+.phpunit.result.cache
+.phpunit.cache/
+phpunit-report.xml
+phpcs-report.txt
+
+# ----------------------------------------------------------------
+# PHPStan cache
+# ----------------------------------------------------------------
+/tmp/
+.phpstan.cache
+phpstan-result-cache.php
+
+# ----------------------------------------------------------------
+# Node.js / Front-end
+# ----------------------------------------------------------------
+/node_modules/
+/public/build/
+/public/hot
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.pnpm-debug.log*
+package-lock.json
+yarn.lock
+pnpm-lock.yaml
+
+# ----------------------------------------------------------------
+# Docker generated files
+# ----------------------------------------------------------------
+docker-compose.override.yml
+
+# ----------------------------------------------------------------
+# IDE / editor files
+# ----------------------------------------------------------------
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# ----------------------------------------------------------------
+# Miscellaneous caches
+# ----------------------------------------------------------------
+*.cache
+.cache/
+.sass-cache/
+
+# ----------------------------------------------------------------
+# OS artefacts
+# ----------------------------------------------------------------
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# ----------------------------------------------------------------
+# Compiled assets
+# ----------------------------------------------------------------
+*.min.js
+*.min.css
+
+# ----------------------------------------------------------------
+# Deployment / CI artefacts
+# ----------------------------------------------------------------
+.deploy/
+deploy.sh.bak

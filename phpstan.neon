@@ -1,0 +1,105 @@
+includes:
+    - vendor/phpstan/phpstan/conf/bleedingEdge.neon
+
+parameters:
+    # ----------------------------------------------------------------
+    # Analysis level: 8 (strict — requires full type coverage)
+    # ----------------------------------------------------------------
+    level: 8
+
+    # ----------------------------------------------------------------
+    # Paths to analyse
+    # ----------------------------------------------------------------
+    paths:
+        - app
+
+    # ----------------------------------------------------------------
+    # Paths to exclude from analysis
+    # ----------------------------------------------------------------
+    excludePaths:
+        analyse:
+            - app/Providers/*
+            - app/Facades/*
+            - app/Foundation/*
+
+    # ----------------------------------------------------------------
+    # Stub files for third-party libraries that lack native types
+    # ----------------------------------------------------------------
+    stubFiles: []
+
+    # ----------------------------------------------------------------
+    # Additional autoload paths (for bootstrapping outside Composer)
+    # ----------------------------------------------------------------
+    bootstrapFiles:
+        - vendor/autoload.php
+
+    # ----------------------------------------------------------------
+    # PHP version target
+    # ----------------------------------------------------------------
+    phpVersion: 80300
+
+    # ----------------------------------------------------------------
+    # Treat missing return types as errors at level 8
+    # ----------------------------------------------------------------
+    checkMissingIterableValueType: true
+    checkGenericClassInNonGenericObjectType: true
+
+    # ----------------------------------------------------------------
+    # Parallel processing
+    # ----------------------------------------------------------------
+    parallel:
+        maximumNumberOfProcesses: 4
+        minimumNumberOfJobsPerProcess: 2
+
+    # ----------------------------------------------------------------
+    # Ignored errors
+    # These are patterns for known false-positives or third-party
+    # code that cannot be fixed directly.
+    # ----------------------------------------------------------------
+    ignoreErrors:
+        # Monolog — dynamic property access on Logger
+        -
+            message: '#Access to an undefined property Monolog\\Logger::\$\w+#'
+            path: app/*
+
+        # Faker — magic methods for locale-specific generators
+        -
+            message: '#Call to an undefined method Faker\\Generator::\w+\(\)#'
+            path: app/*
+
+        # DomPDF — optional nullable returns from internal API
+        -
+            message: '#Method Dompdf\\Dompdf::\w+\(\) has no return type specified#'
+            path: app/*
+
+        # PHPSpreadsheet — mixed return from cell getValue()
+        -
+            message: '#Method PhpOffice\\PhpSpreadsheet\\Cell\\Cell::getValue\(\) return type has no value type specified in iterable type array#'
+            path: app/*
+
+        # Respect/Validation — fluent interface returns mixed
+        -
+            message: '#Call to an undefined static method Respect\\Validation\\Validator::\w+\(\)#'
+            path: app/*
+
+        # Dynamic property access on stdClass objects decoded from JSON
+        -
+            message: '#Access to an undefined property stdClass::\$\w+#'
+            path: app/*
+
+        # Suppressed: unsafe usage of new static() in base model / repository
+        -
+            message: '#Unsafe usage of new static\(\)#'
+            path: app/Core/*
+
+    # ----------------------------------------------------------------
+    # Report unmatched ignored errors (catches stale suppressions)
+    # ----------------------------------------------------------------
+    reportUnmatchedIgnoredErrors: false
+
+    # ----------------------------------------------------------------
+    # Type extensions for magic method resolution
+    # ----------------------------------------------------------------
+    dynamicConstantNames:
+        - APP_ENV
+        - APP_DEBUG
