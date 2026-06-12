@@ -7,7 +7,7 @@ namespace App\Security;
 class HashManager
 {
     public function __construct(
-        private readonly int $algo   = PASSWORD_BCRYPT,
+        private readonly string|int $algo = PASSWORD_BCRYPT,
         private readonly int $rounds = 12,
     ) {}
 

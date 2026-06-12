@@ -78,7 +78,7 @@ class Payroll
 
     public function getPeriodLabel(): string
     {
-        return date('F Y', mktime(0, 0, 0, $this->month, 1, $this->year));
+        return date('F Y', (int) mktime(0, 0, 0, $this->month, 1, $this->year));
     }
 
     public function isProcessed(): bool

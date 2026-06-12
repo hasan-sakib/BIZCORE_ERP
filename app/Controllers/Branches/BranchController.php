@@ -64,6 +64,10 @@ final class BranchController extends BaseController
         }
 
         $branch = $this->branchRepository->findById($id);
+        if ($branch === null) {
+            $this->error('Branch not found.');
+            return $this->redirect('/branches');
+        }
 
         return $this->render('branches/show', [
             'pageTitle'   => sanitize($branch->name),

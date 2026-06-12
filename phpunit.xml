@@ -28,8 +28,7 @@
     stopOnFailure="false"
     stopOnError="false"
 
-    testdox="false"
-    verbose="false">
+    testdox="false">
 
     <!-- ======================================================================
          Test Suites
@@ -46,7 +45,7 @@
     <!-- ======================================================================
          Code Coverage
          Target: 80%+ line coverage on the app/ source tree.
-         Run with: phpunit --coverage-html storage/coverage
+         Run with: phpunit -coverage-html storage/coverage
     ====================================================================== -->
     <source>
         <include>

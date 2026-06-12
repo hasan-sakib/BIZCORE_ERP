@@ -7,6 +7,7 @@ namespace App\Controllers;
 use App\Core\BaseController;
 use App\Core\Database;
 use App\Http\Request;
+use App\Http\Response;
 use App\Services\SalesService;
 
 class InvoiceController extends BaseController
@@ -16,10 +17,10 @@ class InvoiceController extends BaseController
         private readonly Database $db
     ) {}
 
-    public function index(Request $request): void
+    public function index(Request $request): Response
     {
         $user     = $this->currentUser();
-        $branchId = $user?->branchId ?? 0;
+        $branchId = $user->branchId ?? 0;
         $page     = max(1, (int)$request->query('page', 1));
         $perPage  = 20;
 
@@ -71,7 +72,7 @@ class InvoiceController extends BaseController
             $bindings
         );
 
-        $this->view('sales/invoices/index', [
+        return $this->render('sales/invoices/index', [
             'pageTitle'   => 'Invoices',
             'breadcrumbs' => ['Invoices' => null],
             'invoices'    => $invoices,
@@ -83,10 +84,10 @@ class InvoiceController extends BaseController
         ]);
     }
 
-    public function create(Request $request): void
+    public function create(Request $request): Response
     {
         $user     = $this->currentUser();
-        $branchId = $user?->branchId ?? 0;
+        $branchId = $user->branchId ?? 0;
 
         $customers  = $this->db->fetchAll(
             "SELECT id, name, customer_code, credit_period, credit_limit, balance
@@ -98,7 +99,7 @@ class InvoiceController extends BaseController
             [$branchId]
         );
 
-        $this->view('sales/invoices/create', [
+        return $this->render('sales/invoices/create', [
             'pageTitle'   => 'Create Invoice',
             'breadcrumbs' => ['Invoices' => '/invoices', 'Create' => null],
             'customers'   => $customers,
@@ -108,7 +109,7 @@ class InvoiceController extends BaseController
         ]);
     }
 
-    public function store(Request $request): void
+    public function store(Request $request): Response
     {
         $data = $request->all();
         $user = $this->currentUser();
@@ -122,8 +123,9 @@ class InvoiceController extends BaseController
         }
 
         if (!empty($errors)) {
-            $this->withErrors($errors)->withInput($data)->back();
-            return;
+            $this->withErrors($errors);
+            $this->withInput($request);
+            return $this->back();
         }
 
         if (is_string($data['items'])) {
@@ -132,7 +134,7 @@ class InvoiceController extends BaseController
 
         try {
             $invoice = $this->salesService->createInvoice(
-                branchId:    $user?->branchId ?? 0,
+                branchId:    $user->branchId ?? 0,
                 customerId:  (int)$data['customer_id'],
                 items:       $data['items'],
                 warehouseId: (int)($data['warehouse_id'] ?? 0),
@@ -140,15 +142,18 @@ class InvoiceController extends BaseController
                 notes:       $data['notes'] ?? null,
                 discount:    (float)($data['discount_amount'] ?? 0),
                 orderId:     (int)($data['sales_order_id'] ?? 0) ?: null,
-                createdBy:   $user?->id ?? 0
+                createdBy:   $user->id ?? 0
             );
-            $this->success('Invoice created successfully.')->redirect('/invoices/' . $invoice['id']);
+            $this->success('Invoice created successfully.');
+            return $this->redirect('/invoices/' . $invoice['id']);
         } catch (\Throwable $e) {
-            $this->error($e->getMessage())->withInput($data)->back();
+            $this->error($e->getMessage());
+            $this->withInput($request);
+            return $this->back();
         }
     }
 
-    public function show(Request $request, int $id): void
+    public function show(Request $request, int $id): Response
     {
         $invoice = $this->db->fetchOne(
             "SELECT i.*, c.name AS customer_name, c.phone AS customer_phone,
@@ -159,8 +164,8 @@ class InvoiceController extends BaseController
         );
 
         if (!$invoice) {
-            $this->error('Invoice not found.')->redirect('/invoices');
-            return;
+            $this->error('Invoice not found.');
+            return $this->redirect('/invoices');
         }
 
         $invoice['items'] = $this->db->fetchAll(
@@ -178,7 +183,7 @@ class InvoiceController extends BaseController
         $settings = $this->db->fetchAll("SELECT `key`, value FROM settings WHERE `group` = 'company'");
         $company  = array_column($settings, 'value', 'key');
 
-        $this->view('sales/invoices/show', [
+        return $this->render('sales/invoices/show', [
             'pageTitle'   => 'Invoice #' . $invoice['invoice_number'],
             'breadcrumbs' => ['Invoices' => '/invoices', $invoice['invoice_number'] => null],
             'invoice'     => $invoice,
@@ -187,30 +192,36 @@ class InvoiceController extends BaseController
         ]);
     }
 
-    public function recordPayment(Request $request, int $id): void
+    public function recordPayment(Request $request, int $id): Response
     {
         $data = $request->all();
         $user = $this->currentUser();
 
         if (empty($data['amount']) || empty($data['method'])) {
-            $this->error('Amount and payment method are required.')->back();
-            return;
+            $this->error('Amount and payment method are required.');
+            return $this->back();
         }
 
         try {
             $invoice = $this->db->table('invoices')->where('id', $id)->first();
+            if (!$invoice) {
+                $this->error('Invoice not found.');
+                return $this->redirect('/invoices');
+            }
             $this->salesService->receivePayment(
-                branchId:   $invoice['branch_id'],
-                customerId: $invoice['customer_id'],
+                branchId:   (int)$invoice['branch_id'],
+                customerId: (int)$invoice['customer_id'],
                 amount:     (float)$data['amount'],
                 method:     $data['method'],
                 reference:  $data['reference'] ?? null,
                 notes:      $data['notes'] ?? null,
-                createdBy:  $user?->id ?? 0
+                createdBy:  $user->id ?? 0
             );
-            $this->success('Payment recorded successfully.')->redirect("/invoices/{$id}");
+            $this->success('Payment recorded successfully.');
+            return $this->redirect("/invoices/{$id}");
         } catch (\Throwable $e) {
-            $this->error($e->getMessage())->back();
+            $this->error($e->getMessage());
+            return $this->back();
         }
     }
 }

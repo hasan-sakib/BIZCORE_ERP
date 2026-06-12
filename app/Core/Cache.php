@@ -37,9 +37,9 @@ class Cache
     {
         $serialized = $this->serialize($value);
         if ($ttl > 0) {
-            return $this->redis->setex($this->prefix . $key, $ttl, $serialized) === 'OK';
+            return (string) $this->redis->setex($this->prefix . $key, $ttl, $serialized) === 'OK';
         }
-        return $this->redis->set($this->prefix . $key, $serialized) === 'OK';
+        return (string) $this->redis->set($this->prefix . $key, $serialized) === 'OK';
     }
 
     public function put(string $key, mixed $value, int $ttl = 3600): bool

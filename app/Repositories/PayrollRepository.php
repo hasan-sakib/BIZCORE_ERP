@@ -65,10 +65,11 @@ final class PayrollRepository extends BaseRepository
         $w      = implode(' AND ', $where);
         $offset = ($page - 1) * $perPage;
 
-        $total = (int) $this->fetchOne(
+        $totalRow = $this->fetchOne(
             "SELECT COUNT(*) c FROM payroll p WHERE {$w}",
             $params,
-        )['c'];
+        );
+        $total = $totalRow ? (int) $totalRow['c'] : 0;
 
         $rows = $this->fetchAll(
             "SELECT p.*, e.first_name, e.last_name, e.employee_number

@@ -17,8 +17,8 @@ class ReportService
     public function getDashboardMetrics(int $branchId): array
     {
         return $this->cache->remember("dashboard_metrics_{$branchId}", 300, function () use ($branchId) {
-            $currentMonth = date('n');
-            $currentYear  = date('Y');
+            $currentMonth = (int) date('n');
+            $currentYear  = (int) date('Y');
             $lastMonth    = $currentMonth === 1 ? 12 : $currentMonth - 1;
             $lastYear     = $currentMonth === 1 ? $currentYear - 1 : $currentYear;
 
@@ -123,7 +123,7 @@ class ReportService
         );
 
         return array_map(fn($r) => [
-            'label'         => date('M Y', mktime(0, 0, 0, (int)$r['month'], 1, (int)$r['year'])),
+            'label'         => date('M Y', (int) mktime(0, 0, 0, (int)$r['month'], 1, (int)$r['year'])),
             'revenue'       => (float)$r['revenue'],
             'invoice_count' => (int)$r['invoice_count'],
         ], $results);

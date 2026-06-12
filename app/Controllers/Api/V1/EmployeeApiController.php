@@ -30,10 +30,10 @@ class EmployeeApiController extends BaseApiController
             'status'        => $request->query('status'),
         ]);
 
-        $result = $this->employeeService->paginate($branchId, $page, $perPage, $filters);
+        $result = $this->employeeService->paginate($branchId, $filters, $page, $perPage);
 
         $this->paginated([
-            'data'       => array_map(fn($e) => Employee::fromArray($e)->toArray(), $result['data']),
+            'data'       => array_map(fn($e) => $e->toArray(), $result['data']),
             'pagination' => paginate($result['total'], $page, $perPage),
         ]);
     }
@@ -43,6 +43,7 @@ class EmployeeApiController extends BaseApiController
         $employee = $this->employeeService->findById($id);
         if (!$employee) {
             $this->error('Employee not found.', 404);
+            return;
         }
 
         $data = $employee->toArray();
@@ -92,6 +93,7 @@ class EmployeeApiController extends BaseApiController
         $employee = $this->employeeService->findById($id);
         if (!$employee) {
             $this->error('Employee not found.', 404);
+            return;
         }
 
         try {
@@ -107,6 +109,7 @@ class EmployeeApiController extends BaseApiController
         $employee = $this->employeeService->findById($id);
         if (!$employee) {
             $this->error('Employee not found.', 404);
+            return;
         }
 
         $this->employeeService->delete($id);
@@ -126,11 +129,14 @@ class EmployeeApiController extends BaseApiController
 
         try {
             $this->employeeService->transfer(
-                employeeId:  $id,
-                toBranchId:  (int)$data['to_branch_id'],
-                transferDate:$data['transfer_date'],
-                reason:      $data['reason'],
-                createdBy:   $this->currentUser($request)?->id ?? 0
+                $id,
+                [
+                    'to_branch_id'      => (int)$data['to_branch_id'],
+                    'to_department_id'  => isset($data['to_department_id']) ? (int)$data['to_department_id'] : null,
+                    'transfer_date'     => $data['transfer_date'],
+                    'reason'            => $data['reason'] ?? null,
+                    'approved_by'       => $this->currentUser($request)?->id ?? 0,
+                ]
             );
             $this->success(null, 'Employee transferred.');
         } catch (\Throwable $e) {
@@ -175,10 +181,9 @@ class EmployeeApiController extends BaseApiController
 
         try {
             $payroll = $this->payrollService->processSingle(
-                employeeId: $id,
-                month:      (int)$data['month'],
-                year:       (int)$data['year'],
-                createdBy:  $this->currentUser($request)?->id ?? 0
+                $id,
+                (int)$data['month'],
+                (int)$data['year']
             );
             $this->success($payroll, 'Payroll processed.', 201);
         } catch (\Throwable $e) {

@@ -82,6 +82,7 @@ class ProductApiController extends BaseApiController
 
         if (!$row) {
             $this->error('Product not found.', 404);
+            return;
         }
 
         $variants = $this->db->fetchAll(
@@ -142,6 +143,10 @@ class ProductApiController extends BaseApiController
         ]);
 
         $row = $this->db->table('products')->where('id', $id)->first();
+        if (!$row) {
+            $this->error('Failed to retrieve product.', 500);
+            return;
+        }
         $this->success(Product::fromArray($row)->toArray(), 'Product created.', 201);
     }
 
@@ -150,6 +155,7 @@ class ProductApiController extends BaseApiController
         $row = $this->db->table('products')->where('id', $id)->where('is_active', 1)->first();
         if (!$row) {
             $this->error('Product not found.', 404);
+            return;
         }
 
         $data = $request->all();
@@ -158,6 +164,10 @@ class ProductApiController extends BaseApiController
 
         $this->db->table('products')->where('id', $id)->update($data);
         $updated = $this->db->table('products')->where('id', $id)->first();
+        if (!$updated) {
+            $this->error('Failed to retrieve updated product.', 500);
+            return;
+        }
         $this->success(Product::fromArray($updated)->toArray(), 'Product updated.');
     }
 
@@ -166,6 +176,7 @@ class ProductApiController extends BaseApiController
         $row = $this->db->table('products')->where('id', $id)->whereNull('deleted_at')->first();
         if (!$row) {
             $this->error('Product not found.', 404);
+            return;
         }
 
         $this->db->table('products')->where('id', $id)->update([
@@ -192,6 +203,7 @@ class ProductApiController extends BaseApiController
 
         if (!$row) {
             $this->error('Product not found.', 404);
+            return;
         }
         $this->success(Product::fromArray($row)->toArray());
     }

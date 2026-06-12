@@ -419,13 +419,7 @@ final class AuthService
      */
     private function hashPassword(string $password): string
     {
-        $hash = password_hash($password, PASSWORD_BCRYPT, ['cost' => self::BCRYPT_COST]);
-
-        if ($hash === false) {
-            throw new \RuntimeException('Password hashing failed.');
-        }
-
-        return $hash;
+        return password_hash($password, PASSWORD_BCRYPT, ['cost' => self::BCRYPT_COST]);
     }
 
     /**

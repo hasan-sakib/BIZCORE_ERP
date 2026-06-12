@@ -98,7 +98,7 @@ class Auth
         return JWT::encode($payload, $config['secret'], $config['algo'] ?? 'HS256');
     }
 
-    public function validateJWT(string $token): ?object
+    public function validateJWT(string $token): ?\stdClass
     {
         try {
             $config = config('jwt');
@@ -107,7 +107,8 @@ class Auth
                 return null;
             }
 
-            return JWT::decode($token, new Key($config['secret'], $config['algo'] ?? 'HS256'));
+            $decoded = JWT::decode($token, new Key($config['secret'], $config['algo'] ?? 'HS256'));
+            return $decoded instanceof \stdClass ? $decoded : null;
         } catch (\Throwable) {
             return null;
         }

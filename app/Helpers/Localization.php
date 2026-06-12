@@ -215,12 +215,15 @@ final class Localization
             return $result;
         }
 
-        foreach (glob($langDir . DIRECTORY_SEPARATOR . '*.php') as $file) {
-            $fileKey  = pathinfo($file, PATHINFO_FILENAME);
-            $messages = self::loadFile($effectiveLocale, $fileKey);
+        $files = glob($langDir . DIRECTORY_SEPARATOR . '*.php');
+        if (is_array($files)) {
+            foreach ($files as $file) {
+                $fileKey  = pathinfo($file, PATHINFO_FILENAME);
+                $messages = self::loadFile($effectiveLocale, $fileKey);
 
-            foreach (self::flatten($messages, $fileKey) as $k => $v) {
-                $result[$k] = $v;
+                foreach (self::flatten($messages, $fileKey) as $k => $v) {
+                    $result[$k] = $v;
+                }
             }
         }
 

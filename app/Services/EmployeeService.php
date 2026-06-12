@@ -18,41 +18,50 @@ class EmployeeService
         $data['employee_number'] = $this->generateEmployeeNumber($branchId);
 
         if (!empty($data['bank_details']) && is_array($data['bank_details'])) {
-            $data['bank_details'] = encrypt(json_encode($data['bank_details']));
+            $data['bank_details'] = encrypt((string) json_encode($data['bank_details']));
         }
 
         if (!empty($data['address']) && is_array($data['address'])) {
-            $data['address'] = json_encode($data['address']);
+            $data['address'] = (string) json_encode($data['address']);
         }
 
         if (!empty($data['emergency_contact']) && is_array($data['emergency_contact'])) {
-            $data['emergency_contact'] = json_encode($data['emergency_contact']);
+            $data['emergency_contact'] = (string) json_encode($data['emergency_contact']);
         }
 
-        $data['documents'] = json_encode([]);
+        $data['documents'] = (string) json_encode([]);
         $data['created_at'] = now();
         $data['updated_at'] = now();
 
         $id = $this->db->table('employees')->insert($data);
 
-        return $this->findById($id);
+        $employee = $this->findById($id);
+        if ($employee === null) {
+            throw new \RuntimeException("Failed to retrieve employee record after creation.");
+        }
+        return $employee;
     }
 
     public function update(int $id, array $data): Employee
     {
         if (!empty($data['bank_details']) && is_array($data['bank_details'])) {
-            $data['bank_details'] = encrypt(json_encode($data['bank_details']));
+            $data['bank_details'] = encrypt((string) json_encode($data['bank_details']));
         }
         if (!empty($data['address']) && is_array($data['address'])) {
-            $data['address'] = json_encode($data['address']);
+            $data['address'] = (string) json_encode($data['address']);
         }
         if (!empty($data['emergency_contact']) && is_array($data['emergency_contact'])) {
-            $data['emergency_contact'] = json_encode($data['emergency_contact']);
+            $data['emergency_contact'] = (string) json_encode($data['emergency_contact']);
         }
         $data['updated_at'] = now();
 
         $this->db->table('employees')->where('id', $id)->update($data);
-        return $this->findById($id);
+        
+        $employee = $this->findById($id);
+        if ($employee === null) {
+            throw new \RuntimeException("Failed to retrieve employee record after update.");
+        }
+        return $employee;
     }
 
     public function findById(int $id): ?Employee
@@ -128,15 +137,16 @@ class EmployeeService
         }
 
         $this->db->transaction(function () use ($employee, $employeeId, $transferData) {
+            $toDepartmentId = $transferData['to_department_id'] ?? $employee->departmentId;
             $this->db->table('employee_transfers')->insert([
                 'employee_id'        => $employeeId,
                 'from_branch_id'     => $employee->branchId,
                 'to_branch_id'       => $transferData['to_branch_id'],
                 'from_department_id' => $employee->departmentId,
-                'to_department_id'   => $transferData['to_department_id'],
+                'to_department_id'   => $toDepartmentId,
                 'transfer_date'      => $transferData['transfer_date'],
                 'reason'             => $transferData['reason'] ?? null,
-                'approved_by'        => $transferData['approved_by'],
+                'approved_by'        => $transferData['approved_by'] ?? 0,
                 'status'             => 'approved',
                 'created_at'         => now(),
                 'updated_at'         => now(),
@@ -144,7 +154,7 @@ class EmployeeService
 
             $this->db->table('employees')->where('id', $employeeId)->update([
                 'branch_id'     => $transferData['to_branch_id'],
-                'department_id' => $transferData['to_department_id'],
+                'department_id' => $toDepartmentId,
                 'designation_id' => $transferData['to_designation_id'] ?? $employee->designationId,
                 'updated_at'    => now(),
             ]);

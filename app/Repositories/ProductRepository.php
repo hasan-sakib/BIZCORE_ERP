@@ -59,11 +59,11 @@ final class ProductRepository extends BaseRepository
                     c.name AS category_name,
                     b.name AS brand_name,
                     u.name AS unit_name,
-                    u.symbol AS unit_symbol
+                    u.abbreviation AS unit_symbol
              FROM products p
              INNER JOIN categories c ON c.id = p.category_id AND c.deleted_at IS NULL
-             LEFT  JOIN brands     b ON b.id = p.brand_id    AND b.deleted_at IS NULL
-             LEFT  JOIN units      u ON u.id = p.unit_id     AND u.deleted_at IS NULL
+             LEFT  JOIN brands     b ON b.id = p.brand_id
+             LEFT  JOIN units      u ON u.id = p.unit_id
              WHERE {$whereSQL}
              ORDER BY p.name ASC
              LIMIT {$limit} OFFSET {$offset}",
@@ -92,11 +92,11 @@ final class ProductRepository extends BaseRepository
                     c.name   AS category_name,
                     b.name   AS brand_name,
                     u.name   AS unit_name,
-                    u.symbol AS unit_symbol
+                    u.abbreviation AS unit_symbol
              FROM products p
              INNER JOIN categories c ON c.id = p.category_id AND c.deleted_at IS NULL
-             LEFT  JOIN brands     b ON b.id = p.brand_id    AND b.deleted_at IS NULL
-             LEFT  JOIN units      u ON u.id = p.unit_id     AND u.deleted_at IS NULL
+             LEFT  JOIN brands     b ON b.id = p.brand_id
+             LEFT  JOIN units      u ON u.id = p.unit_id
              WHERE p.id = :id AND p.deleted_at IS NULL
              LIMIT 1",
             [':id' => $id],

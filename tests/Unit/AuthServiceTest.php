@@ -392,11 +392,12 @@ final class AuthServiceTest extends TestCase
 
         // 6 historical passwords; only the last 5 matter.
         $passwords = ['Pass@A1', 'Pass@B2', 'Pass@C3', 'Pass@D4', 'Pass@E5', 'Pass@F6'];
-        foreach ($passwords as $p) {
+        foreach ($passwords as $index => $p) {
             $hash = password_hash($p, PASSWORD_BCRYPT);
+            $timeOffset = -10 + $index;
             $this->db->exec(
                 "INSERT INTO password_history (user_id, password_hash, created_at)
-                 VALUES ({$rawUser['id']}, '{$hash}', datetime('now'))"
+                 VALUES ({$rawUser['id']}, '{$hash}', datetime('now', '{$timeOffset} seconds'))"
             );
         }
 

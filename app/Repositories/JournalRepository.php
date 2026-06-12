@@ -23,10 +23,11 @@ final class JournalRepository extends BaseRepository
         $w      = implode(' AND ', $where);
         $offset = ($page - 1) * $perPage;
 
-        $total = (int) $this->fetchOne(
+        $totalRow = $this->fetchOne(
             "SELECT COUNT(*) as c FROM journal_entries j WHERE {$w}",
             $params,
-        )['c'];
+        );
+        $total = $totalRow ? (int) $totalRow['c'] : 0;
 
         $rows = $this->fetchAll(
             "SELECT j.*, u.name AS created_by_name

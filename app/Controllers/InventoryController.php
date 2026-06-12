@@ -7,6 +7,7 @@ namespace App\Controllers;
 use App\Core\BaseController;
 use App\Core\Database;
 use App\Http\Request;
+use App\Http\Response;
 use App\Services\InventoryService;
 
 class InventoryController extends BaseController
@@ -16,10 +17,10 @@ class InventoryController extends BaseController
         private readonly Database $db
     ) {}
 
-    public function index(Request $request): void
+    public function index(Request $request): Response
     {
         $user      = $this->currentUser();
-        $branchId  = $user?->branchId ?? 0;
+        $branchId  = $user->branchId ?? 0;
         $page      = max(1, (int)$request->query('page', 1));
         $search    = $request->query('search');
         $catId     = $request->query('category_id');
@@ -66,7 +67,7 @@ class InventoryController extends BaseController
             "SELECT id, name FROM categories WHERE is_active = 1 ORDER BY name"
         );
 
-        $this->view('inventory/index', [
+        return $this->render('inventory/index', [
             'pageTitle'   => 'Inventory',
             'breadcrumbs' => ['Inventory' => null],
             'items'       => array_map(fn($r) => array_merge($r, [
@@ -84,16 +85,16 @@ class InventoryController extends BaseController
         ]);
     }
 
-    public function stockIn(Request $request): void
+    public function stockIn(Request $request): Response
     {
         $user      = $this->currentUser();
-        $branchId  = $user?->branchId ?? 0;
+        $branchId  = $user->branchId ?? 0;
         $warehouses = $this->db->fetchAll(
             "SELECT id, name FROM warehouses WHERE branch_id = ? AND is_active = 1 ORDER BY name",
             [$branchId]
         );
 
-        $this->view('inventory/stock_in', [
+        return $this->render('inventory/stock_in', [
             'pageTitle'   => 'Stock In',
             'breadcrumbs' => ['Inventory' => '/inventory', 'Stock In' => null],
             'warehouses'  => $warehouses,
@@ -101,7 +102,7 @@ class InventoryController extends BaseController
         ]);
     }
 
-    public function processStockIn(Request $request): void
+    public function processStockIn(Request $request): Response
     {
         $data = $request->all();
         $user = $this->currentUser();
@@ -115,24 +116,27 @@ class InventoryController extends BaseController
                 unitCost:    (float)$data['unit_cost'],
                 reference:   $data['reference'] ?? null,
                 notes:       $data['notes'] ?? null,
-                createdBy:   $user?->id ?? 0
+                createdBy:   $user->id ?? 0
             );
-            $this->success('Stock in recorded successfully.')->redirect('/inventory');
+            $this->success('Stock in recorded successfully.');
+            return $this->redirect('/inventory');
         } catch (\Throwable $e) {
-            $this->error($e->getMessage())->withInput($data)->back();
+            $this->error($e->getMessage());
+            $this->withInput($request);
+            return $this->back();
         }
     }
 
-    public function stockOut(Request $request): void
+    public function stockOut(Request $request): Response
     {
         $user       = $this->currentUser();
-        $branchId   = $user?->branchId ?? 0;
+        $branchId   = $user->branchId ?? 0;
         $warehouses = $this->db->fetchAll(
             "SELECT id, name FROM warehouses WHERE branch_id = ? AND is_active = 1 ORDER BY name",
             [$branchId]
         );
 
-        $this->view('inventory/stock_out', [
+        return $this->render('inventory/stock_out', [
             'pageTitle'   => 'Stock Out',
             'breadcrumbs' => ['Inventory' => '/inventory', 'Stock Out' => null],
             'warehouses'  => $warehouses,
@@ -140,7 +144,7 @@ class InventoryController extends BaseController
         ]);
     }
 
-    public function processStockOut(Request $request): void
+    public function processStockOut(Request $request): Response
     {
         $data = $request->all();
         $user = $this->currentUser();
@@ -153,15 +157,18 @@ class InventoryController extends BaseController
                 quantity:    (float)$data['quantity'],
                 reference:   $data['reference'] ?? null,
                 notes:       $data['notes'] ?? null,
-                createdBy:   $user?->id ?? 0
+                createdBy:   $user->id ?? 0
             );
-            $this->success('Stock out recorded successfully.')->redirect('/inventory');
+            $this->success('Stock out recorded successfully.');
+            return $this->redirect('/inventory');
         } catch (\Throwable $e) {
-            $this->error($e->getMessage())->withInput($data)->back();
+            $this->error($e->getMessage());
+            $this->withInput($request);
+            return $this->back();
         }
     }
 
-    public function movements(Request $request): void
+    public function movements(Request $request): Response
     {
         $page    = max(1, (int)$request->query('page', 1));
         $perPage = 25;
@@ -184,7 +191,7 @@ class InventoryController extends BaseController
             [$from . ' 00:00:00', $to . ' 23:59:59']
         );
 
-        $this->view('inventory/movements', [
+        return $this->render('inventory/movements', [
             'pageTitle'   => 'Stock Movements',
             'breadcrumbs' => ['Inventory' => '/inventory', 'Movements' => null],
             'movements'   => $movements,

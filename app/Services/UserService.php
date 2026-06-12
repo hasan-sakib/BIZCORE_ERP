@@ -73,10 +73,6 @@ final class UserService
 
         $hash = password_hash($dto->password, PASSWORD_BCRYPT, ['cost' => self::BCRYPT_COST]);
 
-        if ($hash === false) {
-            throw new \RuntimeException('Password hashing failed.');
-        }
-
         $userId = $this->userRepository->create([
             'branch_id' => $dto->branchId,
             'role_id'   => $dto->roleId,
@@ -238,8 +234,7 @@ final class UserService
             'image/jpeg' => 'jpg',
             'image/png'  => 'png',
             'image/webp' => 'webp',
-            'image/gif'  => 'gif',
-            default      => 'jpg',
+            default      => 'gif',
         };
 
         $filename = sprintf('%d_%s.%s', $id, bin2hex(random_bytes(8)), $extension);
@@ -250,7 +245,7 @@ final class UserService
 
         $thumb = imagecreatetruecolor(self::AVATAR_WIDTH, self::AVATAR_HEIGHT);
 
-        if ($thumb === false || $src === false) {
+        if ($thumb === false) {
             throw new \RuntimeException('Failed to create GD image resource.');
         }
 

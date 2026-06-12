@@ -63,7 +63,7 @@ class AccountingService
             throw new \RuntimeException("Entry must be in draft status to post.");
         }
 
-        $this->db->transaction(function () use ($entry, $entryId, $postedBy) {
+        $this->db->transaction(function () use ($entryId, $postedBy) {
             $lines = $this->db->fetchAll(
                 "SELECT * FROM journal_entry_lines WHERE journal_entry_id = ?",
                 [$entryId]

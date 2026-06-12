@@ -170,7 +170,11 @@ if (!function_exists('decrypt')) {
         $decoded = base64_decode($data);
         $iv = substr($decoded, 0, 16);
         $encrypted = substr($decoded, 16);
-        return openssl_decrypt($encrypted, 'AES-256-CBC', $key, 0, $iv);
+        $decrypted = openssl_decrypt($encrypted, 'AES-256-CBC', $key, 0, $iv);
+        if ($decrypted === false) {
+            throw new \RuntimeException('Decryption failed.');
+        }
+        return $decrypted;
     }
 }
 
