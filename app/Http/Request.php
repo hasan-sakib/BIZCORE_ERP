@@ -29,6 +29,8 @@ final class Request
     /** @var array<string, mixed> */
     private array $attributes = [];
 
+    private ?\App\Entities\User $authUser = null;
+
     /** @var array<string, string> */
     private readonly array $headers;
 
@@ -251,6 +253,20 @@ final class Request
             ?? $this->headers['x-xsrf-token']
             ?? $this->post['_token']
             ?? '');
+    }
+
+    // -------------------------------------------------------------------------
+    // Auth user (set by API auth middleware)
+    // -------------------------------------------------------------------------
+
+    public function setAuthUser(\App\Entities\User $user): void
+    {
+        $this->authUser = $user;
+    }
+
+    public function getAuthUser(): ?\App\Entities\User
+    {
+        return $this->authUser;
     }
 
     // -------------------------------------------------------------------------

@@ -29,13 +29,13 @@ class AuthApiController extends BaseApiController
             $result = $this->authService->login($email, $password, false);
             $this->success([
                 'token'         => $result['token'],
-                'refresh_token' => $result['refresh_token'],
+                'refresh_token' => $result['refreshToken'],
                 'expires_in'    => config('jwt.ttl', 60) * 60,
                 'user'          => [
-                    'id'       => $result['user']->id,
-                    'name'     => $result['user']->name,
-                    'email'    => $result['user']->email,
-                    'role_id'  => $result['user']->roleId,
+                    'id'        => $result['user']->id,
+                    'name'      => $result['user']->name,
+                    'email'     => $result['user']->email,
+                    'role_id'   => $result['user']->roleId,
                     'branch_id' => $result['user']->branchId,
                 ],
             ], 'Login successful.');
@@ -69,7 +69,7 @@ class AuthApiController extends BaseApiController
             $result = $this->authService->refreshToken($refreshToken);
             $this->success([
                 'token'         => $result['token'],
-                'refresh_token' => $result['refresh_token'],
+                'refresh_token' => $result['refreshToken'],
                 'expires_in'    => config('jwt.ttl', 60) * 60,
             ]);
         } catch (\Throwable $e) {
@@ -80,8 +80,9 @@ class AuthApiController extends BaseApiController
     public function me(Request $request): void
     {
         $user = $this->currentUser($request);
-        if (!$user) {
+        if ($user === null) {
             $this->error('Unauthenticated.', 401);
+            return;
         }
         $this->success([
             'id'        => $user->id,
@@ -89,7 +90,7 @@ class AuthApiController extends BaseApiController
             'email'     => $user->email,
             'phone'     => $user->phone,
             'avatar'    => $user->avatar,
-            'status'    => $user->status,
+            'status'    => $user->status->value,
             'role_id'   => $user->roleId,
             'branch_id' => $user->branchId,
         ]);
