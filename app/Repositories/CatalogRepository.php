@@ -138,27 +138,23 @@ final class CatalogRepository extends BaseRepository
     {
         if ($search !== '') {
             return $this->fetchAll(
-                "SELECT * FROM brands
-                 WHERE deleted_at IS NULL AND name LIKE :search
-                 ORDER BY name ASC",
+                "SELECT * FROM brands WHERE name LIKE :search ORDER BY name ASC",
                 [':search' => '%' . $search . '%'],
             );
         }
 
-        return $this->fetchAll(
-            "SELECT * FROM brands WHERE deleted_at IS NULL ORDER BY name ASC",
-        );
+        return $this->fetchAll("SELECT * FROM brands ORDER BY name ASC");
     }
 
     /**
-     * Find a single brand by primary key (excluding soft-deleted).
+     * Find a single brand by primary key.
      *
      * @return array<string, mixed>|null
      */
     public function findBrand(int $id): ?array
     {
         return $this->fetchOne(
-            "SELECT * FROM brands WHERE id = :id AND deleted_at IS NULL LIMIT 1",
+            "SELECT * FROM brands WHERE id = :id LIMIT 1",
             [':id' => $id],
         );
     }
@@ -172,15 +168,15 @@ final class CatalogRepository extends BaseRepository
     {
         $this->execute(
             "INSERT INTO brands
-                (name, slug, description, image, status, created_at, updated_at)
+                (name, slug, description, logo, status, created_at, updated_at)
              VALUES
-                (:name, :slug, :description, :image, :status, NOW(), NOW())",
+                (:name, :slug, :description, :logo, :status, NOW(), NOW())",
             [
                 ':name'        => $data['name'],
                 ':slug'        => $data['slug'],
                 ':description' => $data['description'] ?? null,
-                ':image'       => $data['image']       ?? null,
-                ':status'      => $data['status']       ?? 'active',
+                ':logo'        => $data['logo'] ?? $data['image'] ?? null,
+                ':status'      => $data['status'] ?? 'active',
             ],
         );
 
@@ -199,32 +195,27 @@ final class CatalogRepository extends BaseRepository
              SET name        = :name,
                  slug        = :slug,
                  description = :description,
-                 image       = :image,
+                 logo        = :logo,
                  status      = :status,
                  updated_at  = NOW()
-             WHERE id = :id AND deleted_at IS NULL",
+             WHERE id = :id",
             [
                 ':name'        => $data['name'],
                 ':slug'        => $data['slug'],
                 ':description' => $data['description'] ?? null,
-                ':image'       => $data['image']       ?? null,
-                ':status'      => $data['status']       ?? 'active',
+                ':logo'        => $data['logo'] ?? $data['image'] ?? null,
+                ':status'      => $data['status'] ?? 'active',
                 ':id'          => $id,
             ],
         );
     }
 
     /**
-     * Soft-delete a brand by setting deleted_at.
+     * Delete a brand row.
      */
     public function softDeleteBrand(int $id): void
     {
-        $this->execute(
-            "UPDATE brands
-             SET deleted_at = NOW(), updated_at = NOW()
-             WHERE id = :id AND deleted_at IS NULL",
-            [':id' => $id],
-        );
+        $this->execute("DELETE FROM brands WHERE id = :id", [':id' => $id]);
     }
 
     // =========================================================================
@@ -241,27 +232,24 @@ final class CatalogRepository extends BaseRepository
         if ($search !== '') {
             return $this->fetchAll(
                 "SELECT * FROM units
-                 WHERE deleted_at IS NULL
-                   AND (name LIKE :search OR symbol LIKE :search)
+                 WHERE (name LIKE :search OR abbreviation LIKE :search)
                  ORDER BY name ASC",
                 [':search' => '%' . $search . '%'],
             );
         }
 
-        return $this->fetchAll(
-            "SELECT * FROM units WHERE deleted_at IS NULL ORDER BY name ASC",
-        );
+        return $this->fetchAll("SELECT * FROM units ORDER BY name ASC");
     }
 
     /**
-     * Find a single unit by primary key (excluding soft-deleted).
+     * Find a single unit by primary key.
      *
      * @return array<string, mixed>|null
      */
     public function findUnit(int $id): ?array
     {
         return $this->fetchOne(
-            "SELECT * FROM units WHERE id = :id AND deleted_at IS NULL LIMIT 1",
+            "SELECT * FROM units WHERE id = :id LIMIT 1",
             [':id' => $id],
         );
     }
@@ -275,14 +263,12 @@ final class CatalogRepository extends BaseRepository
     {
         $this->execute(
             "INSERT INTO units
-                (name, symbol, description, status, created_at, updated_at)
+                (name, abbreviation, created_at, updated_at)
              VALUES
-                (:name, :symbol, :description, :status, NOW(), NOW())",
+                (:name, :abbreviation, NOW(), NOW())",
             [
-                ':name'        => $data['name'],
-                ':symbol'      => $data['symbol'],
-                ':description' => $data['description'] ?? null,
-                ':status'      => $data['status']       ?? 'active',
+                ':name'         => $data['name'],
+                ':abbreviation' => $data['abbreviation'] ?? $data['symbol'] ?? '',
             ],
         );
 
@@ -298,32 +284,23 @@ final class CatalogRepository extends BaseRepository
     {
         $this->execute(
             "UPDATE units
-             SET name        = :name,
-                 symbol      = :symbol,
-                 description = :description,
-                 status      = :status,
-                 updated_at  = NOW()
-             WHERE id = :id AND deleted_at IS NULL",
+             SET name         = :name,
+                 abbreviation = :abbreviation,
+                 updated_at   = NOW()
+             WHERE id = :id",
             [
-                ':name'        => $data['name'],
-                ':symbol'      => $data['symbol'],
-                ':description' => $data['description'] ?? null,
-                ':status'      => $data['status']       ?? 'active',
-                ':id'          => $id,
+                ':name'         => $data['name'],
+                ':abbreviation' => $data['abbreviation'] ?? $data['symbol'] ?? '',
+                ':id'           => $id,
             ],
         );
     }
 
     /**
-     * Soft-delete a unit by setting deleted_at.
+     * Delete a unit row.
      */
     public function softDeleteUnit(int $id): void
     {
-        $this->execute(
-            "UPDATE units
-             SET deleted_at = NOW(), updated_at = NOW()
-             WHERE id = :id AND deleted_at IS NULL",
-            [':id' => $id],
-        );
+        $this->execute("DELETE FROM units WHERE id = :id", [':id' => $id]);
     }
 }
