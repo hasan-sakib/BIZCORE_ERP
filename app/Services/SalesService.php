@@ -4,82 +4,76 @@ declare(strict_types=1);
 
 namespace App\Services;
 
-use App\Core\Database;
-use App\Entities\Invoice;
+use App\Models\Customer;
+use App\Models\Invoice;
+use App\Models\InvoiceItem;
+use App\Models\Payment;
+use App\Models\PaymentAllocation;
+use App\Models\SalesOrder;
+use App\Models\SalesOrderItem;
+use Illuminate\Support\Facades\DB;
 
 class SalesService
 {
-    public function __construct(
-        private readonly Database $db,
-        private readonly InventoryService $inventoryService
-    ) {}
+    public function __construct(private readonly InventoryService $inventoryService) {}
 
     public function createOrder(
         int     $branchId,
         int     $customerId,
         array   $items,
-        ?string $notes = null,
-        float   $discount = 0,
+        array   $data = [],
         int     $createdBy = 0,
-        ?int    $warehouseId = null,
-        ?string $orderDate = null
-    ): array {
-        return $this->db->transaction(function () use (
-            $branchId, $customerId, $items, $notes, $discount, $createdBy, $warehouseId, $orderDate
-        ) {
+    ): SalesOrder {
+        return DB::transaction(function () use ($branchId, $customerId, $items, $data, $createdBy) {
             $orderNumber = $this->generateNumber('ORD', 'sales_orders', 'order_number');
-            $subtotal = 0.0;
-            $vatTotal = 0.0;
+            $subtotal    = 0.0;
+            $vatTotal    = 0.0;
 
             foreach ($items as $item) {
-                $lineTotal = (float)$item['quantity'] * (float)$item['unit_price'];
-                $subtotal += $lineTotal;
-                $vatTotal += $lineTotal * ((float)($item['vat_rate'] ?? 0) / 100);
+                $line     = (float) $item['quantity'] * (float) $item['unit_price'];
+                $subtotal += $line;
+                $vatTotal += $line * ((float) ($item['vat_rate'] ?? 0) / 100);
             }
 
+            $discount    = (float) ($data['discount_amount'] ?? 0);
             $totalAmount = $subtotal + $vatTotal - $discount;
 
-            $orderId = $this->db->table('sales_orders')->insert([
+            $order = SalesOrder::create([
                 'branch_id'       => $branchId,
                 'customer_id'     => $customerId,
                 'order_number'    => $orderNumber,
-                'order_date'      => $orderDate ?? date('Y-m-d'),
-                'warehouse_id'    => $warehouseId,
+                'order_date'      => $data['order_date'] ?? now()->toDateString(),
+                'expected_delivery' => $data['expected_delivery'] ?? null,
+                'warehouse_id'    => $data['warehouse_id'] ?? null,
                 'status'          => 'confirmed',
                 'subtotal'        => round($subtotal, 2),
                 'vat_amount'      => round($vatTotal, 2),
                 'discount_amount' => round($discount, 2),
                 'total_amount'    => round($totalAmount, 2),
                 'paid_amount'     => 0,
-                'notes'           => $notes,
+                'notes'           => $data['notes'] ?? null,
                 'created_by'      => $createdBy,
-                'created_at'      => now(),
-                'updated_at'      => now(),
             ]);
 
             foreach ($items as $item) {
-                $lineTotal = (float)$item['quantity'] * (float)$item['unit_price'];
-                $lineVat   = $lineTotal * ((float)($item['vat_rate'] ?? 0) / 100);
-                $lineDisc  = (float)($item['discount'] ?? 0);
+                $line    = (float) $item['quantity'] * (float) $item['unit_price'];
+                $lineVat = $line * ((float) ($item['vat_rate'] ?? 0) / 100);
+                $lineDisc = (float) ($item['discount'] ?? 0);
 
-                $this->db->table('sales_order_items')->insert([
-                    'sales_order_id' => $orderId,
-                    'product_id'     => (int)$item['product_id'],
-                    'variant_id'     => $item['variant_id'] ?? null,
-                    'quantity'       => (float)$item['quantity'],
-                    'unit_price'     => (float)$item['unit_price'],
-                    'vat_rate'       => (float)($item['vat_rate'] ?? 0),
-                    'vat_amount'     => round($lineVat, 2),
-                    'discount'       => round($lineDisc, 2),
-                    'total'          => round($lineTotal + $lineVat - $lineDisc, 2),
+                SalesOrderItem::create([
+                    'order_id'   => $order->id,
+                    'product_id' => $item['product_id'],
+                    'variant_id' => $item['variant_id'] ?? null,
+                    'quantity'   => $item['quantity'],
+                    'unit_price' => $item['unit_price'],
+                    'vat_rate'   => $item['vat_rate'] ?? 0,
+                    'vat_amount' => round($lineVat, 2),
+                    'discount'   => round($lineDisc, 2),
+                    'total'      => round($line + $lineVat - $lineDisc, 2),
                 ]);
             }
 
-            return [
-                'id'           => $orderId,
-                'order_number' => $orderNumber,
-                'total_amount' => $totalAmount,
-            ];
+            return $order->load('items');
         });
     }
 
@@ -87,50 +81,45 @@ class SalesService
         int     $branchId,
         int     $customerId,
         array   $items,
-        int     $warehouseId = 0,
-        ?string $dueDate = null,
-        ?string $notes = null,
-        float   $discount = 0,
-        ?int    $orderId = null,
-        int     $createdBy = 0
-    ): array {
-        return $this->db->transaction(function () use (
-            $branchId, $customerId, $items, $warehouseId, $dueDate, $notes, $discount, $orderId, $createdBy
-        ) {
+        array   $data = [],
+        int     $createdBy = 0,
+    ): Invoice {
+        return DB::transaction(function () use ($branchId, $customerId, $items, $data, $createdBy) {
             $invoiceNumber = $this->generateNumber('INV', 'invoices', 'invoice_number');
-            $subtotal = 0.0;
-            $vatTotal = 0.0;
+            $subtotal      = 0.0;
+            $vatTotal      = 0.0;
 
             foreach ($items as $item) {
-                $lineTotal = (float)$item['quantity'] * (float)$item['unit_price'];
-                $subtotal += $lineTotal;
-                $vatTotal += $lineTotal * ((float)($item['vat_rate'] ?? 0) / 100);
+                $line     = (float) $item['quantity'] * (float) $item['unit_price'];
+                $subtotal += $line;
+                $vatTotal += $line * ((float) ($item['vat_rate'] ?? 0) / 100);
             }
 
+            $discount    = (float) ($data['discount_amount'] ?? 0);
             $totalAmount = $subtotal + $vatTotal - $discount;
+            $warehouseId = (int) ($data['warehouse_id'] ?? 0);
 
-            // Deduct stock for each item
-            foreach ($items as $item) {
-                if ($warehouseId > 0) {
+            if ($warehouseId > 0) {
+                foreach ($items as $item) {
                     $this->inventoryService->stockOut(
-                        productId:   (int)$item['product_id'],
+                        productId:   (int) $item['product_id'],
                         warehouseId: $warehouseId,
-                        quantity:    (float)$item['quantity'],
-                        variantId:   isset($item['variant_id']) ? (int)$item['variant_id'] : null,
+                        quantity:    (float) $item['quantity'],
+                        variantId:   isset($item['variant_id']) ? (int) $item['variant_id'] : null,
                         reference:   $invoiceNumber,
                         notes:       "Invoice {$invoiceNumber}",
-                        createdBy:   $createdBy
+                        createdBy:   $createdBy,
                     );
                 }
             }
 
-            $invoiceId = $this->db->table('invoices')->insert([
+            $invoice = Invoice::create([
                 'branch_id'       => $branchId,
                 'customer_id'     => $customerId,
-                'sales_order_id'  => $orderId,
+                'sales_order_id'  => $data['sales_order_id'] ?? null,
                 'invoice_number'  => $invoiceNumber,
-                'invoice_date'    => date('Y-m-d'),
-                'due_date'        => $dueDate,
+                'invoice_date'    => now()->toDateString(),
+                'due_date'        => $data['due_date'] ?? null,
                 'warehouse_id'    => $warehouseId ?: null,
                 'subtotal'        => round($subtotal, 2),
                 'vat_amount'      => round($vatTotal, 2),
@@ -139,37 +128,31 @@ class SalesService
                 'paid_amount'     => 0,
                 'balance'         => round($totalAmount, 2),
                 'status'          => 'sent',
-                'notes'           => $notes,
+                'notes'           => $data['notes'] ?? null,
                 'created_by'      => $createdBy,
-                'created_at'      => now(),
-                'updated_at'      => now(),
             ]);
 
             foreach ($items as $item) {
-                $lineTotal = (float)$item['quantity'] * (float)$item['unit_price'];
-                $lineVat   = $lineTotal * ((float)($item['vat_rate'] ?? 0) / 100);
-                $lineDisc  = (float)($item['discount'] ?? 0);
+                $line    = (float) $item['quantity'] * (float) $item['unit_price'];
+                $lineVat = $line * ((float) ($item['vat_rate'] ?? 0) / 100);
+                $lineDisc = (float) ($item['discount'] ?? 0);
 
-                $this->db->table('invoice_items')->insert([
-                    'invoice_id' => $invoiceId,
-                    'product_id' => (int)$item['product_id'],
+                InvoiceItem::create([
+                    'invoice_id' => $invoice->id,
+                    'product_id' => $item['product_id'],
                     'variant_id' => $item['variant_id'] ?? null,
-                    'quantity'   => (float)$item['quantity'],
-                    'unit_price' => (float)$item['unit_price'],
-                    'vat_rate'   => (float)($item['vat_rate'] ?? 0),
+                    'quantity'   => $item['quantity'],
+                    'unit_price' => $item['unit_price'],
+                    'vat_rate'   => $item['vat_rate'] ?? 0,
                     'vat_amount' => round($lineVat, 2),
                     'discount'   => round($lineDisc, 2),
-                    'total'      => round($lineTotal + $lineVat - $lineDisc, 2),
+                    'total'      => round($line + $lineVat - $lineDisc, 2),
                 ]);
             }
 
-            // Update customer balance
-            $this->db->execute(
-                "UPDATE customers SET balance = balance + ?, updated_at = ? WHERE id = ?",
-                [round($totalAmount, 2), now(), $customerId]
-            );
+            Customer::where('id', $customerId)->increment('balance', round($totalAmount, 2));
 
-            return $this->db->table('invoices')->where('id', $invoiceId)->first();
+            return $invoice->load('items');
         });
     }
 
@@ -180,86 +163,71 @@ class SalesService
         string  $method = 'cash',
         ?string $reference = null,
         ?string $notes = null,
-        int     $createdBy = 0
-    ): array {
-        return $this->db->transaction(function () use (
-            $branchId, $customerId, $amount, $method, $reference, $notes, $createdBy
-        ) {
+        int     $createdBy = 0,
+    ): Payment {
+        return DB::transaction(function () use ($branchId, $customerId, $amount, $method, $reference, $notes, $createdBy) {
             $paymentNumber = $this->generateNumber('PAY', 'payments', 'payment_number');
 
-            $paymentId = $this->db->table('payments')->insert([
+            $payment = Payment::create([
                 'branch_id'      => $branchId,
-                'customer_id'    => $customerId,
+                'payer_type'     => Customer::class,
+                'payer_id'       => $customerId,
                 'payment_number' => $paymentNumber,
-                'payment_date'   => date('Y-m-d'),
+                'payment_date'   => now()->toDateString(),
                 'amount'         => $amount,
                 'method'         => $method,
                 'reference'      => $reference,
                 'notes'          => $notes,
                 'status'         => 'completed',
                 'created_by'     => $createdBy,
-                'created_at'     => now(),
-                'updated_at'     => now(),
             ]);
 
             // FIFO: allocate to oldest unpaid invoices first
             $remaining = $amount;
-            $invoices  = $this->db->fetchAll(
-                "SELECT * FROM invoices WHERE customer_id = ? AND status IN ('sent','partial')
-                 AND deleted_at IS NULL ORDER BY invoice_date ASC, id ASC",
-                [$customerId]
-            );
+            $invoices  = Invoice::where('customer_id', $customerId)
+                ->whereIn('status', ['sent', 'partial'])
+                ->orderBy('invoice_date')
+                ->orderBy('id')
+                ->get();
 
             foreach ($invoices as $invoice) {
                 if ($remaining <= 0.0) break;
 
-                $balance   = (float)$invoice['balance'];
+                $balance   = (float) $invoice->balance;
                 $allocated = min($remaining, $balance);
                 $remaining -= $allocated;
 
-                $newPaid    = (float)$invoice['paid_amount'] + $allocated;
-                $newBalance = max(0, (float)$invoice['total_amount'] - $newPaid);
+                $newPaid    = (float) $invoice->paid_amount + $allocated;
+                $newBalance = max(0, (float) $invoice->total_amount - $newPaid);
                 $newStatus  = $newBalance <= 0.01 ? 'paid' : 'partial';
 
-                $this->db->table('invoices')->where('id', (int)$invoice['id'])->update([
+                $invoice->update([
                     'paid_amount' => round($newPaid, 2),
                     'balance'     => round($newBalance, 2),
                     'status'      => $newStatus,
-                    'updated_at'  => now(),
                 ]);
 
-                $this->db->table('payment_allocations')->insert([
-                    'payment_id' => $paymentId,
-                    'invoice_id' => (int)$invoice['id'],
-                    'amount'     => round($allocated, 2),
-                    'created_at' => now(),
+                PaymentAllocation::create([
+                    'payment_id'       => $payment->id,
+                    'invoice_id'       => $invoice->id,
+                    'allocated_amount' => round($allocated, 2),
+                    'invoice_type'     => 'sales',
                 ]);
             }
 
-            // Reduce customer outstanding balance by amount actually allocated
             $allocated = $amount - $remaining;
-            $this->db->execute(
-                "UPDATE customers SET balance = GREATEST(0, balance - ?), updated_at = ? WHERE id = ?",
-                [round($allocated, 2), now(), $customerId]
-            );
+            Customer::where('id', $customerId)->update([
+                'balance' => DB::raw("GREATEST(0, balance - " . round($allocated, 2) . ")"),
+            ]);
 
-            return [
-                'id'             => $paymentId,
-                'payment_number' => $paymentNumber,
-                'amount'         => $amount,
-                'allocated'      => $allocated,
-                'unallocated'    => $remaining,
-            ];
+            return $payment;
         });
     }
 
     private function generateNumber(string $prefix, string $table, string $column): string
     {
         $year  = date('Y');
-        $count = (int)$this->db->fetchColumn(
-            "SELECT COUNT(*) FROM {$table} WHERE {$column} LIKE ?",
-            ["{$prefix}-{$year}-%"]
-        );
-        return "{$prefix}-{$year}-" . str_pad((string)($count + 1), 5, '0', STR_PAD_LEFT);
+        $count = DB::table($table)->where($column, 'like', "{$prefix}-{$year}-%")->count();
+        return "{$prefix}-{$year}-" . str_pad((string) ($count + 1), 5, '0', STR_PAD_LEFT);
     }
 }

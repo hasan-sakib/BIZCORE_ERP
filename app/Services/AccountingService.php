@@ -4,16 +4,16 @@ declare(strict_types=1);
 
 namespace App\Services;
 
-use App\Core\Database;
-use App\Entities\JournalEntry;
+use App\Models\Account;
+use App\Models\JournalEntry;
+use App\Models\JournalEntryLine;
+use Illuminate\Support\Facades\DB;
 
 class AccountingService
 {
-    public function __construct(private readonly Database $db) {}
-
     public function createEntry(array $data): JournalEntry
     {
-        $lines = $data['lines'] ?? [];
+        $lines       = $data['lines'] ?? [];
         $totalDebit  = array_sum(array_column($lines, 'debit'));
         $totalCredit = array_sum(array_column($lines, 'credit'));
 
@@ -23,112 +23,97 @@ class AccountingService
             );
         }
 
-        return $this->db->transaction(function () use ($data, $lines, $totalDebit, $totalCredit) {
+        return DB::transaction(function () use ($data, $lines, $totalDebit, $totalCredit) {
             $entryNumber = $this->generateEntryNumber($data['branch_id']);
 
-            $entryId = $this->db->table('journal_entries')->insert([
-                'branch_id'      => (int)$data['branch_id'],
+            $entry = JournalEntry::create([
+                'branch_id'      => $data['branch_id'],
                 'entry_number'   => $entryNumber,
-                'date'           => $data['date'] ?? date('Y-m-d'),
+                'date'           => $data['date'] ?? now()->toDateString(),
                 'reference_type' => $data['reference_type'] ?? null,
                 'reference_id'   => $data['reference_id'] ?? null,
                 'description'    => $data['description'] ?? null,
                 'total_debit'    => round($totalDebit, 2),
                 'total_credit'   => round($totalCredit, 2),
                 'status'         => 'draft',
-                'created_by'     => (int)$data['created_by'],
-                'created_at'     => now(),
-                'updated_at'     => now(),
+                'created_by'     => $data['created_by'],
             ]);
 
             foreach ($lines as $line) {
-                $this->db->table('journal_entry_lines')->insert([
-                    'journal_entry_id' => $entryId,
-                    'account_id'       => (int)$line['account_id'],
-                    'debit'            => (float)($line['debit'] ?? 0),
-                    'credit'           => (float)($line['credit'] ?? 0),
+                JournalEntryLine::create([
+                    'journal_entry_id' => $entry->id,
+                    'account_id'       => $line['account_id'],
+                    'debit'            => (float) ($line['debit'] ?? 0),
+                    'credit'           => (float) ($line['credit'] ?? 0),
                     'description'      => $line['description'] ?? null,
-                    'branch_id'        => (int)$data['branch_id'],
+                    'branch_id'        => $data['branch_id'],
                 ]);
             }
 
-            return $this->findEntryById($entryId);
+            return $entry->load('lines');
         });
     }
 
     public function postEntry(int $entryId, int $postedBy): void
     {
-        $entry = $this->findEntryById($entryId);
-        if (!$entry || $entry->status !== 'draft') {
-            throw new \RuntimeException("Entry must be in draft status to post.");
+        $entry = JournalEntry::with('lines')->findOrFail($entryId);
+
+        if ($entry->status !== 'draft') {
+            throw new \RuntimeException('Entry must be in draft status to post.');
         }
 
-        $this->db->transaction(function () use ($entryId, $postedBy) {
-            $lines = $this->db->fetchAll(
-                "SELECT * FROM journal_entry_lines WHERE journal_entry_id = ?",
-                [$entryId]
-            );
-
-            foreach ($lines as $line) {
-                $account = $this->db->table('accounts')->where('id', (int)$line['account_id'])->first();
+        DB::transaction(function () use ($entry, $entryId, $postedBy) {
+            foreach ($entry->lines as $line) {
+                $account = Account::find($line->account_id);
                 if (!$account) continue;
 
-                $isDebitNormal = $account['normal_balance'] === 'debit';
+                $isDebitNormal = $account->normal_balance === 'debit';
                 $netChange = $isDebitNormal
-                    ? (float)$line['debit'] - (float)$line['credit']
-                    : (float)$line['credit'] - (float)$line['debit'];
+                    ? (float) $line->debit - (float) $line->credit
+                    : (float) $line->credit - (float) $line->debit;
 
-                $this->db->execute(
-                    "UPDATE accounts SET balance = balance + ?, updated_at = ? WHERE id = ?",
-                    [$netChange, now(), (int)$line['account_id']]
-                );
+                $account->increment('balance', $netChange);
             }
 
-            $this->db->table('journal_entries')->where('id', $entryId)->update([
+            $entry->update([
                 'status'    => 'posted',
                 'posted_by' => $postedBy,
                 'posted_at' => now(),
-                'updated_at' => now(),
             ]);
         });
     }
 
     public function reverseEntry(int $entryId, int $reversedBy, string $reason): JournalEntry
     {
-        $original = $this->findEntryById($entryId);
-        if (!$original || $original->status !== 'posted') {
-            throw new \RuntimeException("Only posted entries can be reversed.");
+        $original = JournalEntry::with('lines')->findOrFail($entryId);
+
+        if ($original->status !== 'posted') {
+            throw new \RuntimeException('Only posted entries can be reversed.');
         }
 
-        $lines = $this->db->fetchAll(
-            "SELECT * FROM journal_entry_lines WHERE journal_entry_id = ?",
-            [$entryId]
-        );
-
-        $reversalLines = array_map(fn($l) => [
-            'account_id'  => (int)$l['account_id'],
-            'debit'       => (float)$l['credit'],
-            'credit'      => (float)$l['debit'],
-            'description' => "Reversal: " . ($l['description'] ?? ''),
-        ], $lines);
+        $reversalLines = $original->lines->map(fn($l) => [
+            'account_id'  => $l->account_id,
+            'debit'       => (float) $l->credit,
+            'credit'      => (float) $l->debit,
+            'description' => 'Reversal: ' . ($l->description ?? ''),
+        ])->toArray();
 
         $reversal = $this->createEntry([
-            'branch_id'      => $original->branchId,
-            'date'           => date('Y-m-d'),
+            'branch_id'      => $original->branch_id,
+            'date'           => now()->toDateString(),
             'reference_type' => 'reversal',
             'reference_id'   => $entryId,
-            'description'    => "Reversal of {$original->entryNumber}: {$reason}",
+            'description'    => "Reversal of {$original->entry_number}: {$reason}",
             'lines'          => $reversalLines,
             'created_by'     => $reversedBy,
         ]);
 
         $this->postEntry($reversal->id, $reversedBy);
 
-        $this->db->table('journal_entries')->where('id', $entryId)->update([
+        $original->update([
             'status'      => 'reversed',
             'reversed_by' => $reversedBy,
             'reversed_at' => now(),
-            'updated_at'  => now(),
         ]);
 
         return $reversal;
@@ -136,7 +121,7 @@ class AccountingService
 
     public function getTrialBalance(string $asOfDate, ?int $branchId = null): array
     {
-        $rows = $this->db->fetchAll(
+        $rows = DB::select(
             "SELECT a.code, a.name, a.type, a.normal_balance,
                     COALESCE(SUM(jel.debit), 0) AS total_debit,
                     COALESCE(SUM(jel.credit), 0) AS total_credit,
@@ -144,8 +129,7 @@ class AccountingService
              FROM accounts a
              LEFT JOIN journal_entry_lines jel ON jel.account_id = a.id
              LEFT JOIN journal_entries je ON je.id = jel.journal_entry_id
-                 AND je.status = 'posted'
-                 AND je.date <= ?
+                 AND je.status = 'posted' AND je.date <= ?
              WHERE a.is_active = 1
              GROUP BY a.id, a.code, a.name, a.type, a.normal_balance
              HAVING total_debit > 0 OR total_credit > 0
@@ -171,14 +155,13 @@ class AccountingService
 
         $totalRevenue = array_sum(array_column($revenues, 'net_change'));
         $totalExpense = array_sum(array_column($expenses, 'net_change'));
-        $netIncome    = $totalRevenue - $totalExpense;
 
         return [
             'revenues'      => $revenues,
             'expenses'      => $expenses,
             'total_revenue' => $totalRevenue,
             'total_expense' => $totalExpense,
-            'net_income'    => $netIncome,
+            'net_income'    => $totalRevenue - $totalExpense,
             'period'        => ['from' => $fromDate, 'to' => $toDate],
         ];
     }
@@ -194,21 +177,21 @@ class AccountingService
         $totalEquity      = array_sum(array_column($equity, 'net_change'));
 
         return [
-            'assets'           => $assets,
-            'liabilities'      => $liabilities,
-            'equity'           => $equity,
-            'total_assets'     => $totalAssets,
+            'assets'            => $assets,
+            'liabilities'       => $liabilities,
+            'equity'            => $equity,
+            'total_assets'      => $totalAssets,
             'total_liabilities' => $totalLiabilities,
-            'total_equity'     => $totalEquity,
-            'is_balanced'      => abs($totalAssets - ($totalLiabilities + $totalEquity)) < 0.01,
-            'as_of'            => $asOfDate,
+            'total_equity'      => $totalEquity,
+            'is_balanced'       => abs($totalAssets - ($totalLiabilities + $totalEquity)) < 0.01,
+            'as_of'             => $asOfDate,
         ];
     }
 
     private function getAccountBalances(array $types, string $fromDate, string $toDate): array
     {
-        $typePlaceholders = implode(',', array_fill(0, count($types), '?'));
-        return $this->db->fetchAll(
+        $placeholders = implode(',', array_fill(0, count($types), '?'));
+        return DB::select(
             "SELECT a.code, a.name, a.type, a.normal_balance,
                     COALESCE(SUM(jel.debit), 0) AS total_debit,
                     COALESCE(SUM(jel.credit), 0) AS total_credit,
@@ -220,26 +203,17 @@ class AccountingService
              LEFT JOIN journal_entry_lines jel ON jel.account_id = a.id
              LEFT JOIN journal_entries je ON je.id = jel.journal_entry_id
                  AND je.status = 'posted' AND je.date BETWEEN ? AND ?
-             WHERE a.type IN ({$typePlaceholders}) AND a.is_active = 1
+             WHERE a.type IN ({$placeholders}) AND a.is_active = 1
              GROUP BY a.id, a.code, a.name, a.type, a.normal_balance
              ORDER BY a.code ASC",
             array_merge([$fromDate, $toDate], $types)
         );
     }
 
-    private function findEntryById(int $id): ?JournalEntry
-    {
-        $row = $this->db->table('journal_entries')->where('id', $id)->first();
-        return $row ? JournalEntry::fromArray($row) : null;
-    }
-
     private function generateEntryNumber(int $branchId): string
     {
         $year  = date('Y');
-        $count = (int)$this->db->fetchColumn(
-            "SELECT COUNT(*) FROM journal_entries WHERE branch_id = ? AND YEAR(date) = ?",
-            [$branchId, $year]
-        );
-        return "JE-{$year}-" . str_pad((string)($count + 1), 5, '0', STR_PAD_LEFT);
+        $count = JournalEntry::where('branch_id', $branchId)->whereYear('date', $year)->count();
+        return 'JE-' . $year . '-' . str_pad((string) ($count + 1), 5, '0', STR_PAD_LEFT);
     }
 }

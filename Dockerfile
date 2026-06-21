@@ -44,8 +44,11 @@ COPY docker/php/php-fpm.conf /usr/local/etc/php-fpm.d/www.conf
 COPY --chown=www-data:www-data . .
 
 RUN composer install --no-dev --optimize-autoloader --no-interaction \
-    && chown -R www-data:www-data storage bootstrap \
-    && chmod -R 775 storage bootstrap
+    && php artisan config:cache \
+    && php artisan route:cache \
+    && php artisan view:cache \
+    && chown -R www-data:www-data storage bootstrap/cache \
+    && chmod -R 775 storage bootstrap/cache
 
 USER www-data
 

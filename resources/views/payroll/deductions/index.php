@@ -1,3 +1,0 @@
-<?php ob_start(); ?>
-<div class="card shadow-sm"><div class="card-header bg-white"><h6 class="mb-0 fw-semibold"><i class="fas fa-list me-2 text-primary"></i>Deductions</h6></div><div class="card-body p-0"><table class="table mb-0"><thead class="table-light"><tr><th>Name</th><th>Type</th><th>Amount</th></tr></thead><tbody><?php if (empty($components)): ?><tr><td colspan="3" class="text-center text-muted py-4">No deductions configured.</td></tr><?php else: ?><?php foreach ($components as $c): ?><tr><td><?= sanitize($c['name'] ?? '') ?></td><td><?= sanitize($c['type'] ?? '') ?></td><td><?= sanitize($c['amount'] ?? '—') ?></td></tr><?php endforeach; ?><?php endif; ?></tbody></table></div></div>
-<?php $content = ob_get_clean(); include __DIR__ . '/../../layouts/app.php'; ?>

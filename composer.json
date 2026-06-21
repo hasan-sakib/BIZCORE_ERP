@@ -1,61 +1,78 @@
 {
-  "name": "bizcore/erp",
-  "description": "BizCore ERP - Multi-Branch Enterprise Resource Planning Platform",
-  "type": "project",
-  "license": "proprietary",
-  "minimum-stability": "stable",
-  "prefer-stable": true,
-  "require": {
-    "php": ">=8.3",
-    "ext-gd": "*",
-    "ext-json": "*",
-    "ext-mbstring": "*",
-    "ext-openssl": "*",
-    "ext-pdo": "*",
-    "ext-redis": "*",
-    "dompdf/dompdf": "^2.0",
-    "firebase/php-jwt": "^6.10",
-    "intervention/image": "^3.0",
-    "league/flysystem": "^3.0",
-    "league/oauth2-google": "^5.0",
-    "monolog/monolog": "^3.7",
-    "phpmailer/phpmailer": "^6.9",
-    "phpoffice/phpspreadsheet": "^2.0",
-    "predis/predis": "^2.2",
-    "ramsey/uuid": "^4.7",
-    "respect/validation": "^2.3",
-    "vlucas/phpdotenv": "^5.6"
-  },
-  "require-dev": {
-    "phpunit/phpunit": "^11.0",
-    "phpstan/phpstan": "^1.11",
-    "squizlabs/php_codesniffer": "^3.10",
-    "fakerphp/faker": "^1.23",
-    "mockery/mockery": "^1.6"
-  },
-  "autoload": {
-    "files": [
-      "app/Helpers/helpers.php"
-    ],
-    "psr-4": {
-      "App\\": "app/",
-      "Database\\": "database/"
+    "name": "bizcore/erp-laravel",
+    "description": "BizCore ERP — Laravel 11 Edition",
+    "type": "project",
+    "license": "proprietary",
+    "minimum-stability": "stable",
+    "prefer-stable": true,
+    "require": {
+        "php": "^8.3",
+        "ext-gd": "*",
+        "ext-json": "*",
+        "ext-mbstring": "*",
+        "ext-openssl": "*",
+        "ext-pdo": "*",
+        "ext-redis": "*",
+        "laravel/framework": "^11.0",
+        "laravel/tinker": "^2.9",
+        "firebase/php-jwt": "^6.10",
+        "predis/predis": "^2.2",
+        "dompdf/dompdf": "^2.0",
+        "phpoffice/phpspreadsheet": "^2.0",
+        "league/oauth2-google": "^5.0",
+        "intervention/image": "^3.0",
+        "ramsey/uuid": "^4.7"
+    },
+    "require-dev": {
+        "fakerphp/faker": "^1.23",
+        "laravel/pint": "^1.13",
+        "laravel/sail": "^1.26",
+        "laravel/telescope": "^5.0",
+        "mockery/mockery": "^1.6",
+        "nunomaduro/collision": "^8.1",
+        "phpunit/phpunit": "^11.0",
+        "phpstan/phpstan": "^1.11"
+    },
+    "autoload": {
+        "psr-4": {
+            "App\\": "app/",
+            "Database\\Factories\\": "database/factories/",
+            "Database\\Seeders\\": "database/seeders/"
+        }
+    },
+    "autoload-dev": {
+        "psr-4": {
+            "Tests\\": "tests/"
+        }
+    },
+    "scripts": {
+        "post-autoload-dump": [
+            "Illuminate\\Foundation\\ComposerScripts::postAutoloadDump",
+            "@php artisan package:discover --ansi"
+        ],
+        "post-update-cmd": [
+            "@php artisan vendor:publish --tag=laravel-assets --ansi --force"
+        ],
+        "post-root-package-install": [
+            "@php -r \"file_exists('.env') || copy('.env.example', '.env');\""
+        ],
+        "post-create-project-cmd": [
+            "@php artisan key:generate --ansi",
+            "@php -r \"file_exists('database/database.sqlite') || touch('database/database.sqlite');\""
+        ]
+    },
+    "extra": {
+        "laravel": {
+            "dont-discover": []
+        }
+    },
+    "config": {
+        "optimize-autoloader": true,
+        "preferred-install": "dist",
+        "sort-packages": true,
+        "allow-plugins": {
+            "pestphp/pest-plugin": true,
+            "php-http/discovery": true
+        }
     }
-  },
-  "autoload-dev": {
-    "psr-4": {
-      "Tests\\": "tests/"
-    }
-  },
-  "scripts": {
-    "test": "phpunit --configuration phpunit.xml",
-    "lint": "phpcs --standard=PSR12 app/",
-    "analyse": "phpstan analyse app/ --level=8",
-    "migrate": "php database/migrate.php",
-    "seed": "php database/seed.php"
-  },
-  "config": {
-    "optimize-autoloader": true,
-    "sort-packages": true
-  }
 }
